@@ -1,0 +1,16 @@
+{
+    "files.associations": {
+        "*.uss": "css",
+        "stdio.h": "c",
+        "strsafe.h": "c",
+        "tokenizer.h": "c",
+        "vector.h": "c",
+        "fancy_console.h": "c",
+        "parser.h": "c",
+        "formatter.h": "c",
+        "stdarg.h": "c",
+        "calc.h": "c",
+        "stddef.h": "c",
+        "test_calc.h": "c"
+    }
+}

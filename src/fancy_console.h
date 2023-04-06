@@ -1,0 +1,40 @@
+#ifndef FANCY_CONSOLE_H
+#define FANCY_CONSOLE_H
+
+// https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
+
+enum ConsoleGraphicsMode {
+    CONSOLE_DEFAULT = 0,
+    CONSOLE_BOLD = 1,
+    CONSOLE_NO_BOLD = 22,
+    CONSOLE_UNDERLINE = 4,
+    CONSOLE_NO_UNDERLINE = 24,
+    CONSOLE_NEGATIVE = 7,
+    CONSOLE_POSITIVE = 27,
+    CONSOLE_FOREGROUND_BLACK = 30,
+    CONSOLE_FOREGROUND_RED = 31,
+    CONSOLE_FOREGROUND_GREEN = 32,
+    CONSOLE_FOREGROUND_YELLOW = 33,
+    CONSOLE_FOREGROUND_BLUE = 34,
+    CONSOLE_FOREGROUND_MAGENTA = 35,
+    CONSOLE_FOREGROUND_CYAN = 36,
+    CONSOLE_FOREGROUND_WRITE = 37,
+    CONSOLE_FOREGROUND_EXTENDED = 38,
+    CONSOLE_FOREGROUND_DEFAULT = 39,
+    CONSOLE_BACKGROUND_BLACK = 40,
+    CONSOLE_BACKGROUND_RED = 41,
+    CONSOLE_BACKGROUND_GREEN = 42,
+    CONSOLE_BACKGROUND_YELLOW = 43,
+    CONSOLE_BACKGROUND_BLUE = 44,
+    CONSOLE_BACKGROUND_MAGENTA = 45,
+    CONSOLE_BACKGROUND_CYAN = 46,
+    CONSOLE_BACKGROUND_WRITE = 47,
+    CONSOLE_BACKGROUND_EXTENDED = 48,
+    CONSOLE_BACKGROUND_DEFAULT = 49,
+} typedef ConsoleGraphicsMode;
+
+void setConsoleRendition(ConsoleGraphicsMode mode);
+void setConsoleForegroundRGB(int r, int g, int b);
+void setConsoleBackgroundRGB(int r, int g, int b);
+
+#endif
