@@ -9,6 +9,7 @@
 #include "formatter.h"
 #include "calc.h"
 
+
 int main(int argc, char** args) {
     printf("Expression: ");
     char* input = getline();
@@ -22,13 +23,16 @@ int main(int argc, char** args) {
         return 1;
     }
 
-    ExpressionNode* expRoot = buildExpressionTree(tokens);
+    BlockNode rootBlock = buildBlocksTree(tokens);
+    ExpressionNode* expRoot = buildExpressionTree(rootBlock);
 
     float result = evaluateExpressionNode(expRoot);
     
     printf_s("= %f\n", result);
 
     vectorFree(&tokens);
+    freeBlocksTree(rootBlock);
+    freeExpressionTree(expRoot);
 
     return 0;
 }

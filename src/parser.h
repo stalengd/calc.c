@@ -14,17 +14,27 @@ struct LiteralNode {
     float number;
 } typedef LiteralNode;
 
-struct ExpressionTreeBuilder {
-    ExpressionNode* root;
-    ExpressionNode* current;
-} typedef ExpressionTreeBuilder;
+struct BlockNode {
+    //struct BlockNode* prev;
+    Vector members;
+} typedef BlockNode;
+struct BlockMember {
+    enum TokenType type;
+    union Data {
+        TokenNode token;
+        BlockNode block;
+    } data;
+} typedef BlockMember;
 
-struct Block {
-    struct Block* prev;
-    ExpressionNode* expression;
-} typedef Block;
-
-
-ExpressionNode* buildExpressionTree(Vector tokens);
+BlockNode buildBlocksTree(Vector tokens);
+ExpressionNode* buildExpressionTree(BlockNode block);
+ExpressionNode* sortExpressionTree(ExpressionNode* root);
+LiteralNode* createLiteralNode(float value);
+ExpressionNode* appendOperatorToTree(ExpressionNode* node, enum TokenType type);
+void replaceBlockWithExpression(ExpressionNode* node);
+int getOperationPriority(enum TokenType type);
+bool isOperation(enum TokenType type);
+void freeBlocksTree(BlockNode node);
+void freeExpressionTree(ExpressionNode* node);
 
 #endif

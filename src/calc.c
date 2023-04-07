@@ -7,10 +7,13 @@ int calculate(char* rawExpression, float* resultPointer) {
         return 1;
     }
 
-    ExpressionNode* expRoot = buildExpressionTree(tokens);
+    BlockNode rootBlock = buildBlocksTree(tokens);
+    ExpressionNode* expRoot = buildExpressionTree(rootBlock);
     float result = evaluateExpressionNode(expRoot);
     *resultPointer = result;
     vectorFree(&tokens);
+    freeBlocksTree(rootBlock);
+    freeExpressionTree(expRoot);
     return 0;
 }
 
@@ -32,5 +35,3 @@ float evaluateExpressionNode(ExpressionNode* node) {
         return 0; // TODO: error
     }
 }
-
-

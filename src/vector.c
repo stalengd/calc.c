@@ -17,7 +17,7 @@ void vectorPush(Vector* v, const void* element) {
         int newCapacity = v->capacity * 2;
         int newMemorySize = newCapacity * v->cell;
         void* newMemory = malloc(newMemorySize);
-        memcpy_s(newMemory, newMemorySize, v->data, v->capacity);
+        memcpy_s(newMemory, newMemorySize, v->data, v->capacity * v->cell);
         v->capacity = newCapacity;
         free(v->data);
         v->data = newMemory;
