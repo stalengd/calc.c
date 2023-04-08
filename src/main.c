@@ -24,6 +24,9 @@ int main(int argc, char** args) {
     }
 
     BlockNode rootBlock = buildBlocksTree(tokens);
+
+    printBlocksTree(rootBlock);
+
     ExpressionNode* expRoot = buildExpressionTree(rootBlock);
 
     float result = evaluateExpressionNode(expRoot);
