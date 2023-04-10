@@ -12,6 +12,7 @@
 
 
 int oneShotExecution(CliArguments cli);
+int interactiveExecution(CliArguments cli);
 int helpExecution(CliArguments cli);
 
 
@@ -27,9 +28,16 @@ const CliCommand cmdVerbose = {
     .defaultValue = false
 };
 
+const CliCommand cmdInteractive = {
+    .name = "-i --interactive",
+    .desc = "Interactive mode",
+    .defaultValue = false
+};
+
 const CliCommand* commands[] = {
     &cmdHelp,
-    &cmdVerbose
+    &cmdVerbose,
+    &cmdInteractive
 };
 
 int main(int argc, char** args) {
@@ -45,6 +53,9 @@ int main(int argc, char** args) {
         return helpExecution(cli);
     }
 
+    if (cliParseFlag(cli, cmdInteractive)) {
+        return interactiveExecution(cli);
+    }
     return oneShotExecution(cli);
 }
 
@@ -78,6 +89,47 @@ int oneShotExecution(CliArguments cli) {
     vectorFree(&tokens);
     freeBlocksTree(rootBlock);
     freeExpressionTree(expRoot);
+    free(input);
+
+    return 0;
+}
+
+int interactiveExecution(CliArguments cli) {
+    bool verbose = cliParseFlag(cli, cmdVerbose);
+
+    printf("Interactive mode: enter expressions, Ctrl+C to exit\n\n");
+
+    while (true)
+    {
+        printf("> ");
+        char* input = getline();
+
+        Vector tokens = tokenize(input);
+
+        if (verbose)
+            printWithFormatting(input, tokens);
+        
+        if (tokens.size == 0) {
+            printf_s("x Input is empty\n\n");
+            continue;
+        }
+
+        BlockNode rootBlock = buildBlocksTree(tokens);
+
+        if (verbose)
+            printBlocksTree(rootBlock);
+
+        ExpressionNode* expRoot = buildExpressionTree(rootBlock);
+
+        float result = evaluateExpressionNode(expRoot);
+        
+        printf_s("= %f\n\n", result);
+
+        vectorFree(&tokens);
+        freeBlocksTree(rootBlock);
+        freeExpressionTree(expRoot);
+        free(input);
+    }
 
     return 0;
 }
