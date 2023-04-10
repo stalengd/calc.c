@@ -27,10 +27,20 @@ BlockNode buildBlocksTree(Vector tokens) {
             break;
         }
         case TOKEN_CLOSE_BRACKET: {
+            int membersCount = currentBlock->members.size;
+            Vector prevBlockMembers = currentBlock->members;
+
             if (vectorPop(&bracketsStack, &currentBlock) == false) {
                 // TODO: error
                 printf("ERROR: you are closing more brackets than opening\n");
             }
+            if (prevBlockMembers.size == 1) {
+                void* member = vectorGet(&prevBlockMembers, 0);
+                vectorPop(&currentBlock->members, NULL);
+                vectorPush(&currentBlock->members, member);
+                vectorFree(&prevBlockMembers);
+            }
+
             break;
         }
         default: {
@@ -47,6 +57,15 @@ BlockNode buildBlocksTree(Vector tokens) {
     if (bracketsStack.size != 0) {
         // TODO: error
         printf("ERROR: you are opening %d more brackets than closing\n", bracketsStack.size);
+    }
+
+    if (root.members.size == 1) {
+        BlockMember* member = (BlockMember*)vectorGet(&root.members, 0);
+        if (member->type == TOKEN_OPEN_BRACKET) {
+            Vector oldVector = root.members;
+            root.members = member->data.block.members;
+            vectorFree(&oldVector);
+        }
     }
 
     vectorFree(&bracketsStack);
@@ -111,6 +130,11 @@ ExpressionNode* buildExpressionTree(BlockNode block) {
     if (node->left == NULL) {
         if (node->type == TOKEN_MINUS) {
             node->left = (ExpressionNode*)createLiteralNode(0);
+        }
+        if (node->type == TOKEN_NONE) {
+            ExpressionNode* right = node->right;
+            free(node);
+            return right;
         }
         else {
             // TODO: error
