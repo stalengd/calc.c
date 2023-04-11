@@ -1,8 +1,11 @@
 #include "parser.h"
 
-BlockNode buildBlocksTree(Vector tokens) {
+ParsingResult buildBlocksTree(Vector tokens, BlockNode* resultPointer) {
+    ParsingResult result;
+
     BlockNode root = {
-        .members = vectorCreate(4, sizeof(BlockMember))
+        .members = vectorCreate(4, sizeof(BlockMember)),
+        .stringStart = ((TokenNode*)vectorGet(&tokens, 0))->str
     };
     BlockNode* currentBlock = &root;
     
@@ -18,7 +21,8 @@ BlockNode buildBlocksTree(Vector tokens) {
             BlockMember newMember = {
                 .type = TOKEN_OPEN_BRACKET,
                 .data.block = {
-                    .members = vectorCreate(4, sizeof(BlockMember))
+                    .members = vectorCreate(4, sizeof(BlockMember)),
+                    .stringStart = token->str
                 }
             };
             vectorPush(&currentBlock->members, &newMember);
@@ -27,12 +31,20 @@ BlockNode buildBlocksTree(Vector tokens) {
             break;
         }
         case TOKEN_CLOSE_BRACKET: {
-            int membersCount = currentBlock->members.size;
             Vector prevBlockMembers = currentBlock->members;
 
             if (vectorPop(&bracketsStack, &currentBlock) == false) {
-                // TODO: error
-                printf("ERROR: you are closing more brackets than opening\n");
+                result.isError = true;
+                result.errorPosition = token->str;
+                result.errorMessage = "You are closing more brackets than opening";
+                goto end;
+            }
+
+            if (prevBlockMembers.size == 0) {
+                result.isError = true;
+                result.errorPosition = token->str;
+                result.errorMessage = "Block is empty";
+                goto end;
             }
             if (prevBlockMembers.size == 1) {
                 void* member = vectorGet(&prevBlockMembers, 0);
@@ -55,8 +67,10 @@ BlockNode buildBlocksTree(Vector tokens) {
     }
 
     if (bracketsStack.size != 0) {
-        // TODO: error
-        printf("ERROR: you are opening %d more brackets than closing\n", bracketsStack.size);
+        result.isError = true;
+        result.errorPosition = PARSING_ERROR_POSITION_END;
+        result.errorMessage = "You are opening more brackets than closing";
+        goto end;
     }
 
     if (root.members.size == 1) {
@@ -68,12 +82,19 @@ BlockNode buildBlocksTree(Vector tokens) {
         }
     }
 
-    vectorFree(&bracketsStack);
-    
-    return root;
+    *resultPointer = root;
+    result.isError = false;
+
+
+    end:
+    if (result.isError) {
+        freeBlocksTree(root);
+    }
+    vectorFree(&bracketsStack); 
+    return result;
 }
 
-ExpressionNode* buildExpressionTree(BlockNode block) {
+ParsingResult buildExpressionTree(BlockNode block, ExpressionNode** resultPointer) {
     ExpressionNode* expRoot = malloc(sizeof(ExpressionNode));
     expRoot->type = TOKEN_NONE;
     expRoot->left = NULL;
@@ -92,8 +113,28 @@ ExpressionNode* buildExpressionTree(BlockNode block) {
             if (node->right == NULL) {
                 node->right = (ExpressionNode*)numberNode;
             }
-            else {
+            else if (node->left == NULL) {
+                if (node->type == TOKEN_NONE) {
+                    free(numberNode);
+                    ParsingResult result = {
+                        .isError = true,
+                        .errorPosition = token->data.token.str,
+                        .errorMessage = "Several values in a row are not supported"
+                    };
+                    freeExpressionTree(expRoot);
+                    return result;
+                }
                 node->left = (ExpressionNode*)numberNode;
+            }
+            else {
+                free(numberNode);
+                ParsingResult result = {
+                    .isError = true,
+                    .errorPosition = token->data.token.str,
+                    .errorMessage = "Several values in a row are not supported"
+                };
+                freeExpressionTree(expRoot);
+                return result;
             }
             break;
         }
@@ -102,11 +143,14 @@ ExpressionNode* buildExpressionTree(BlockNode block) {
         case TOKEN_MULTIPLY:
         case TOKEN_DIVIDE:
         {
-            node = appendOperatorToTree(node, token->type);
+            ParsingResult result = appendOperatorToTree(node, token, &node);
+            if (result.isError) {
+                return result;
+            }
             break;
         }
         case TOKEN_OPEN_BRACKET: {
-            ExpressionNode* innerNode = malloc(sizeof(ExpressionNode)); //buildExpressionTree(token->data.block);
+            ExpressionNode* innerNode = malloc(sizeof(ExpressionNode));
             innerNode->type = TOKEN_OPEN_BRACKET;
             innerNode->left = (ExpressionNode*)token;
             if (node->right == NULL) {
@@ -131,22 +175,42 @@ ExpressionNode* buildExpressionTree(BlockNode block) {
         if (node->type == TOKEN_MINUS) {
             node->left = (ExpressionNode*)createLiteralNode(0);
         }
-        if (node->type == TOKEN_NONE) {
+        else if (node->type == TOKEN_NONE) {
             ExpressionNode* right = node->right;
             free(node);
-            return right;
+            freeExpressionTree(expRoot);
+            *resultPointer = right;
+            ParsingResult result = {
+                .isError = false
+            };
+            return result;
         }
         else {
-            // TODO: error
-            printf("ERROR: expected value at start of the block\n");
+            BlockMember* startMember = (BlockMember*)vectorGet(&block.members, 0);
+            char* pos = startMember->type == TOKEN_OPEN_BRACKET ? 
+                startMember->data.block.stringStart : 
+                startMember->data.token.str;
+            ParsingResult result = {
+                .isError = true,
+                .errorPosition = pos,
+                .errorMessage = "Expected value at start of the block"
+            };
+            freeExpressionTree(expRoot);
+            return result;
         }
     }
 
     expRoot = sortExpressionTree(expRoot);
 
-    replaceBlockWithExpression(expRoot);
+    ParsingResult result = replaceBlockWithExpression(expRoot);
+    if (result.isError) {
+        freeExpressionTree(expRoot);
+        return result;
+    }
 
-    return expRoot;
+    *resultPointer = expRoot;
+    result.isError = false;
+    return result;
 }
 
 LiteralNode* createLiteralNode(float value) {
@@ -156,7 +220,15 @@ LiteralNode* createLiteralNode(float value) {
     return numberNode;
 }
 
-ExpressionNode* appendOperatorToTree(ExpressionNode* node, enum TokenType type) {
+ParsingResult appendOperatorToTree(ExpressionNode* node, BlockMember* token, ExpressionNode** resultPointer) {
+    if (node->right == NULL) {
+        ParsingResult result = {
+            .isError = true,
+            .errorPosition = token->data.token.str + 2,
+            .errorMessage = "Expected value after operator"
+        };
+        return result;
+    }
     if (node->left == NULL) {
         if (node->type == TOKEN_MINUS) {
             node->type = TOKEN_NONE;
@@ -167,43 +239,68 @@ ExpressionNode* appendOperatorToTree(ExpressionNode* node, enum TokenType type) 
             node->right = newNode;
         }
         if (node->type == TOKEN_NONE) {
-            node->type = type;
+            node->type = token->type;
         }
         else {
-            // TODO: error
-            printf("ERROR: several incompatible operators in a row\n");
+            ParsingResult result = {
+                .isError = true,
+                .errorPosition = token->data.token.str,
+                .errorMessage = "Several incompatible operators in a row"
+            };
+            return result;
         }
     }
     else {
         ExpressionNode* newNode = malloc(sizeof(ExpressionNode));
-        newNode->type = type;
+        newNode->type = token->type;
         newNode->left = NULL;
         newNode->right = node->left;
         node->left = newNode;
         node = newNode;
     }
-    return node;
+    *resultPointer = node;
+    ParsingResult result = {
+        .isError = false
+    };
+    return result;
 }
 
-void replaceBlockWithExpression(ExpressionNode* node) {
+ParsingResult replaceBlockWithExpression(ExpressionNode* node) {
     if (node->left->type == TOKEN_OPEN_BRACKET) {
         BlockMember* block = (BlockMember*)node->left->left;
         void* old = node->left;
-        node->left = buildExpressionTree(block->data.block);
+        ParsingResult result = buildExpressionTree(block->data.block, &node->left);
         free(old);
+        if (result.isError) {
+            return result;
+        }
     }
     else if (isOperation(node->left->type)) {
-        replaceBlockWithExpression(node->left);
+        ParsingResult result = replaceBlockWithExpression(node->left);
+        if (result.isError) {
+            return result;
+        }
     }
     if (node->right->type == TOKEN_OPEN_BRACKET) {
         BlockMember* block = (BlockMember*)node->right->left;
         void* old = node->right;
-        node->right = buildExpressionTree(block->data.block);
+        ParsingResult result = buildExpressionTree(block->data.block, &node->right);
         free(old);
+        if (result.isError) {
+            return result;
+        }
     }
     else if (isOperation(node->right->type)){
-        replaceBlockWithExpression(node->right);
+        ParsingResult result = replaceBlockWithExpression(node->right);
+        if (result.isError) {
+            return result;
+        }
     }
+
+    ParsingResult result = {
+        .isError = false
+    };
+    return result;
 }
 
 ExpressionNode* sortExpressionTree(ExpressionNode* expRoot) {
@@ -261,6 +358,7 @@ bool isOperation(enum TokenType type) {
 }
 
 void freeBlocksTree(BlockNode node) {
+    if (node.members.data == NULL) return;
     for (size_t i = 0; i < node.members.size; i++)
     {
         BlockMember* m = vectorGet(&node.members, i);

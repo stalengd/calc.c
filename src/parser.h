@@ -15,8 +15,8 @@ struct LiteralNode {
 } typedef LiteralNode;
 
 struct BlockNode {
-    //struct BlockNode* prev;
     Vector members;
+    char* stringStart;
 } typedef BlockNode;
 struct BlockMember {
     enum TokenType type;
@@ -26,12 +26,21 @@ struct BlockMember {
     } data;
 } typedef BlockMember;
 
-BlockNode buildBlocksTree(Vector tokens);
-ExpressionNode* buildExpressionTree(BlockNode block);
+struct ParsingResult {
+    bool isError;
+    char* errorPosition;
+    char* errorMessage;
+} typedef ParsingResult;
+
+#define PARSING_ERROR_POSITION_NONE -1 
+#define PARSING_ERROR_POSITION_END -2
+
+ParsingResult buildBlocksTree(Vector tokens, BlockNode* resultPointer);
+ParsingResult buildExpressionTree(BlockNode block, ExpressionNode** resultPointer);
 ExpressionNode* sortExpressionTree(ExpressionNode* root);
 LiteralNode* createLiteralNode(float value);
-ExpressionNode* appendOperatorToTree(ExpressionNode* node, enum TokenType type);
-void replaceBlockWithExpression(ExpressionNode* node);
+ParsingResult appendOperatorToTree(ExpressionNode* node, BlockMember* token, ExpressionNode** resultPointer);
+ParsingResult replaceBlockWithExpression(ExpressionNode* node);
 int getOperationPriority(enum TokenType type);
 bool isOperation(enum TokenType type);
 void freeBlocksTree(BlockNode node);

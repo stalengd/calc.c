@@ -14,6 +14,8 @@
 int oneShotExecution(CliArguments cli);
 int interactiveExecution(CliArguments cli);
 int helpExecution(CliArguments cli);
+int promptAndCalculate(bool verbose, int expressionOffset);
+void printParsingError(ParsingResult result, char* rawExpression, int expressionOffset);
 
 
 const CliCommand cmdHelp = {
@@ -63,35 +65,7 @@ int oneShotExecution(CliArguments cli) {
     bool verbose = cliParseFlag(cli, cmdVerbose);
 
     printf("Expression: ");
-    char* input = getline();
-
-    Vector tokens = tokenize(input);
-
-    if (verbose)
-        printWithFormatting(input, tokens);
-    
-    if (tokens.size == 0) {
-        printf_s("Input is empty \n");
-        return 1;
-    }
-
-    BlockNode rootBlock = buildBlocksTree(tokens);
-
-    if (verbose)
-        printBlocksTree(rootBlock);
-
-    ExpressionNode* expRoot = buildExpressionTree(rootBlock);
-
-    float result = evaluateExpressionNode(expRoot);
-    
-    printf_s("= %f\n", result);
-
-    vectorFree(&tokens);
-    freeBlocksTree(rootBlock);
-    freeExpressionTree(expRoot);
-    free(input);
-
-    return 0;
+    return promptAndCalculate(verbose, 12);
 }
 
 int interactiveExecution(CliArguments cli) {
@@ -102,33 +76,8 @@ int interactiveExecution(CliArguments cli) {
     while (true)
     {
         printf("> ");
-        char* input = getline();
-
-        Vector tokens = tokenize(input);
-
-        if (verbose)
-            printWithFormatting(input, tokens);
-        
-        if (tokens.size == 0) {
-            printf_s("x Input is empty\n\n");
-            continue;
-        }
-
-        BlockNode rootBlock = buildBlocksTree(tokens);
-
-        if (verbose)
-            printBlocksTree(rootBlock);
-
-        ExpressionNode* expRoot = buildExpressionTree(rootBlock);
-
-        float result = evaluateExpressionNode(expRoot);
-        
-        printf_s("= %f\n\n", result);
-
-        vectorFree(&tokens);
-        freeBlocksTree(rootBlock);
-        freeExpressionTree(expRoot);
-        free(input);
+        int code = promptAndCalculate(verbose, 2);
+        if (code != 0) return code;
     }
 
     return 0;
@@ -150,4 +99,67 @@ int helpExecution(CliArguments cli) {
     putchar('\n');
 
     return 0;
+}
+
+
+int promptAndCalculate(bool verbose, int expressionOffset) {
+    char* input = getline();
+
+    Vector tokens = tokenize(input);
+    BlockNode rootBlock;
+    memset(&rootBlock, 0, sizeof(BlockNode));
+    ExpressionNode* expRoot = NULL;
+
+    if (verbose)
+        printWithFormatting(input, tokens);
+    
+    if (tokens.size == 0) {
+        printf_s("x Input is empty\n\n");
+        goto end;
+    }
+
+    ParsingResult result = buildBlocksTree(tokens, &rootBlock);
+    if (result.isError) {
+        printParsingError(result, input, expressionOffset);
+        goto end;
+    }
+
+    if (verbose)
+        printBlocksTree(rootBlock);
+
+    result = buildExpressionTree(rootBlock, &expRoot);
+    if (result.isError) {
+        printParsingError(result, input, expressionOffset);
+        goto end;
+    }
+
+    float resultValue = evaluateExpressionNode(expRoot);
+    
+    printf_s("= %f\n\n", resultValue);
+
+    end:
+    vectorFree(&tokens);
+    freeBlocksTree(rootBlock);
+    freeExpressionTree(expRoot);
+    free(input);
+    return 0;
+}
+
+void printParsingError(ParsingResult result, char* rawExpression, int expressionOffset) {
+    if (result.errorPosition != PARSING_ERROR_POSITION_NONE) {
+        if (result.errorPosition == PARSING_ERROR_POSITION_END) {
+            result.errorPosition = rawExpression + strlen(rawExpression) - 1;
+        }
+        int errorCursorPos = expressionOffset + (result.errorPosition - rawExpression);
+        for (size_t i = 0; i < errorCursorPos; i++)
+        {
+            putchar(' ');
+        }
+        putchar('^');
+    }
+    putchar('\n');
+    setConsoleRendition(CONSOLE_FOREGROUND_RED);
+    printf("ERROR: ");
+    setConsoleRendition(CONSOLE_DEFAULT);
+    printf("%s\n\n", result.errorMessage);
 }

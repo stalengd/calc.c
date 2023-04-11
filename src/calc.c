@@ -2,19 +2,37 @@
 
 int calculate(char* rawExpression, float* resultPointer) {
     Vector tokens = tokenize(rawExpression);
+    int exitCode = 0;
     
+    BlockNode rootBlock;
+    memset(&rootBlock, 0, sizeof(BlockNode));
+    ExpressionNode* expRoot = NULL;
+
     if (tokens.size == 0) {
-        return 1;
+        exitCode = 1;
+        goto end;
     }
 
-    BlockNode rootBlock = buildBlocksTree(tokens);
-    ExpressionNode* expRoot = buildExpressionTree(rootBlock);
-    float result = evaluateExpressionNode(expRoot);
-    *resultPointer = result;
+    ParsingResult result = buildBlocksTree(tokens, &rootBlock);
+    if (result.isError) {
+        exitCode = 1;
+        goto end;
+    }
+    
+    result = buildExpressionTree(rootBlock, &expRoot);
+        if (result.isError) {
+        exitCode = 1;
+        goto end;
+    }
+
+    float resultValue = evaluateExpressionNode(expRoot);
+    *resultPointer = resultValue;
+
+    end:
     vectorFree(&tokens);
     freeBlocksTree(rootBlock);
     freeExpressionTree(expRoot);
-    return 0;
+    return exitCode;
 }
 
 float evaluateExpressionNode(ExpressionNode* node) {

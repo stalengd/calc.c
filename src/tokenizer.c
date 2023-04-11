@@ -93,11 +93,13 @@ Vector tokenize(const char* str) {
     Vector vec = vectorCreate(16, sizeof(TokenNode));
 
     TokenNode* currentToken = NULL;
+    enum TokenType currentType = TOKEN_NONE;
     while (currentChar != '\0')
     {
         enum TokenType t = getTokenType(currentChar);
 
         if (t == TOKEN_NONE) {
+            currentType = t;
             goto next;
         }
 
@@ -109,11 +111,11 @@ Vector tokenize(const char* str) {
             };
             vectorPush(&vec, &newToken);
             currentToken = vectorLast(&vec);
+            currentType = currentToken->type;
         }
 
-        enum TokenType curType = currentToken->type;
-        if (t != curType ||
-            currentToken->length >= getTokenTypeLimit(curType)) {
+        if (t != currentType ||
+            currentToken->length >= getTokenTypeLimit(currentType)) {
             TokenNode newToken = {
                 .length = 1,
                 .type = t,
@@ -121,6 +123,7 @@ Vector tokenize(const char* str) {
             };
             vectorPush(&vec, &newToken);
             currentToken = vectorLast(&vec);
+            currentType = currentToken->type;
         }
         else {
             currentToken->length += 1;
