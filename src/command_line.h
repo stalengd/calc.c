@@ -20,6 +20,7 @@ struct CliCommand
 
 
 bool cliParseFlag(CliArguments, CliCommand command);
+char* cliParseString(CliArguments, CliCommand command);
 
 int cliFindArgumentPosition(CliArguments, char* name);
 

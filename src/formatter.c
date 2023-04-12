@@ -6,6 +6,13 @@ void printWithFormatting(char* originalExpression, Vector tokens) {
     size_t tokenIndex = 0;
     while (c != '\0')
     {
+        if (c == '\n' || c == '\r') 
+        {
+            i++;
+            c = originalExpression[i];
+            continue;
+        }
+
         TokenNode* token = vectorGet(&tokens, tokenIndex);
         if (token != NULL && token->str == originalExpression + i) {
             i += token->length;
@@ -19,7 +26,7 @@ void printWithFormatting(char* originalExpression, Vector tokens) {
         }
         c = originalExpression[i];
     }
-    //putchar('\n');
+    putchar('\n');
 }
 
 void printToken(TokenNode* token) {

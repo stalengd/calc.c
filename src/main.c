@@ -12,9 +12,11 @@
 
 
 int oneShotExecution(CliArguments cli);
+int givenExpressionExecution(CliArguments cli, char* expression);
 int interactiveExecution(CliArguments cli);
 int helpExecution(CliArguments cli);
 int promptAndCalculate(bool verbose, int expressionOffset);
+int calculateExpression(char* expression, bool verbose, int expressionOffset);
 void printParsingError(ParsingResult result, char* rawExpression, int expressionOffset);
 
 
@@ -36,10 +38,17 @@ const CliCommand cmdInteractive = {
     .defaultValue = false
 };
 
+const CliCommand cmdExpression = {
+    .name = "-e --expression",
+    .desc = "Calculate given expression and exit",
+    .defaultValue = NULL
+};
+
 const CliCommand* commands[] = {
     &cmdHelp,
     &cmdVerbose,
-    &cmdInteractive
+    &cmdInteractive,
+    &cmdExpression
 };
 
 int main(int argc, char** args) {
@@ -55,6 +64,10 @@ int main(int argc, char** args) {
         return helpExecution(cli);
     }
 
+    char* givenExpression = cliParseString(cli, cmdExpression);
+    if (givenExpression != NULL) {
+        return givenExpressionExecution(cli, givenExpression);
+    }
     if (cliParseFlag(cli, cmdInteractive)) {
         return interactiveExecution(cli);
     }
@@ -66,6 +79,12 @@ int oneShotExecution(CliArguments cli) {
 
     printf("Expression: ");
     return promptAndCalculate(verbose, 12);
+}
+
+int givenExpressionExecution(CliArguments cli, char* expression) {
+    bool verbose = cliParseFlag(cli, cmdVerbose);
+
+    return calculateExpression(expression, verbose, 0);
 }
 
 int interactiveExecution(CliArguments cli) {
@@ -105,13 +124,20 @@ int helpExecution(CliArguments cli) {
 int promptAndCalculate(bool verbose, int expressionOffset) {
     char* input = getline();
 
-    Vector tokens = tokenize(input);
+    int r = calculateExpression(input, verbose, expressionOffset);
+
+    free(input);
+    return r;
+}
+
+int calculateExpression(char* expression, bool verbose, int expressionOffset) {
+    Vector tokens = tokenize(expression);
     BlockNode rootBlock;
     memset(&rootBlock, 0, sizeof(BlockNode));
     ExpressionNode* expRoot = NULL;
 
     if (verbose)
-        printWithFormatting(input, tokens);
+        printWithFormatting(expression, tokens);
     
     if (tokens.size == 0) {
         printf_s("x Input is empty\n\n");
@@ -120,7 +146,7 @@ int promptAndCalculate(bool verbose, int expressionOffset) {
 
     ParsingResult result = buildBlocksTree(tokens, &rootBlock);
     if (result.isError) {
-        printParsingError(result, input, expressionOffset);
+        printParsingError(result, expression, expressionOffset);
         goto end;
     }
 
@@ -129,7 +155,7 @@ int promptAndCalculate(bool verbose, int expressionOffset) {
 
     result = buildExpressionTree(rootBlock, &expRoot);
     if (result.isError) {
-        printParsingError(result, input, expressionOffset);
+        printParsingError(result, expression, expressionOffset);
         goto end;
     }
 
@@ -141,7 +167,6 @@ int promptAndCalculate(bool verbose, int expressionOffset) {
     vectorFree(&tokens);
     freeBlocksTree(rootBlock);
     freeExpressionTree(expRoot);
-    free(input);
     return 0;
 }
 

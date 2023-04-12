@@ -6,6 +6,15 @@ bool cliParseFlag(CliArguments args, CliCommand command) {
     return pos > -1;
 }
 
+char* cliParseString(CliArguments args, CliCommand command) {
+    char* name = command.name;
+    int pos = cliFindArgumentPosition(args, name);
+    if (pos < 0 || pos + 1 >= args.argc) {
+        return (char*)command.defaultValue;
+    }
+    return args.args[pos + 1];
+}
+
 int cliFindArgumentPosition(CliArguments args, char* name) {
     for (size_t i = 0; i < args.argc; i++)
     {
