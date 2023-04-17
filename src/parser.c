@@ -177,7 +177,7 @@ ParsingResult buildExpressionTree(BlockNode block, ExpressionNode** resultPointe
         }
         else if (node->type == TOKEN_NONE) {
             ExpressionNode* right = node->right;
-            free(node);
+            node->right = NULL;
             freeExpressionTree(expRoot);
             *resultPointer = right;
             ParsingResult result = {
