@@ -9,15 +9,17 @@
 #include "command_line.h"
 #include "formatter.h"
 #include "calc.h"
+#include "timeutil.h"
 
 
 int oneShotExecution(CliArguments cli);
 int givenExpressionExecution(CliArguments cli, char* expression);
 int interactiveExecution(CliArguments cli);
 int helpExecution(CliArguments cli);
-int promptAndCalculate(bool verbose, int expressionOffset);
-int calculateExpression(char* expression, bool verbose, int expressionOffset);
+int promptAndCalculate(CliArguments cli, int expressionOffset);
+int calculateExpression(CliArguments cli, char* expression, int expressionOffset);
 void printParsingError(ParsingResult result, char* rawExpression, int expressionOffset);
+void printTimer(datetime startTime, datetime endTime);
 
 
 const CliCommand cmdHelp = {
@@ -29,6 +31,12 @@ const CliCommand cmdHelp = {
 const CliCommand cmdVerbose = {
     .name = "-v --verbose",
     .desc = "Verbose mode",
+    .defaultValue = false
+};
+
+const CliCommand cmdTime = {
+    .name = "-t --time",
+    .desc = "Time calculation",
     .defaultValue = false
 };
 
@@ -47,6 +55,7 @@ const CliCommand cmdExpression = {
 const CliCommand* commands[] = {
     &cmdHelp,
     &cmdVerbose,
+    &cmdTime,
     &cmdInteractive,
     &cmdExpression
 };
@@ -75,16 +84,12 @@ int main(int argc, char** args) {
 }
 
 int oneShotExecution(CliArguments cli) {
-    bool verbose = cliParseFlag(cli, cmdVerbose);
-
     printf("Expression: ");
-    return promptAndCalculate(verbose, 12);
+    return promptAndCalculate(cli, 12);
 }
 
 int givenExpressionExecution(CliArguments cli, char* expression) {
-    bool verbose = cliParseFlag(cli, cmdVerbose);
-
-    return calculateExpression(expression, verbose, 0);
+    return calculateExpression(cli, expression, 0);
 }
 
 int interactiveExecution(CliArguments cli) {
@@ -95,7 +100,7 @@ int interactiveExecution(CliArguments cli) {
     while (true)
     {
         printf("> ");
-        int code = promptAndCalculate(verbose, 2);
+        int code = promptAndCalculate(cli, 2);
         if (code != 0) return code;
     }
 
@@ -121,23 +126,26 @@ int helpExecution(CliArguments cli) {
 }
 
 
-int promptAndCalculate(bool verbose, int expressionOffset) {
+int promptAndCalculate(CliArguments cli, int expressionOffset) {
     char* input = getline();
 
-    int r = calculateExpression(input, verbose, expressionOffset);
+    int r = calculateExpression(cli, input, expressionOffset);
 
     free(input);
     return r;
 }
 
-int calculateExpression(char* expression, bool verbose, int expressionOffset) {
+int calculateExpression(CliArguments cli, char* expression, int expressionOffset) {
+    bool verbose = cliParseFlag(cli, cmdVerbose);
+    bool useTimer = cliParseFlag(cli, cmdTime);
+
+    datetime startTime = time_now();
+
     Vector tokens = tokenize(expression);
     BlockNode rootBlock;
     memset(&rootBlock, 0, sizeof(BlockNode));
     ExpressionNode* expRoot = NULL;
 
-    if (verbose)
-        printWithFormatting(expression, tokens);
     
     if (tokens.size == 0) {
         printf_s("x Input is empty\n\n");
@@ -150,9 +158,6 @@ int calculateExpression(char* expression, bool verbose, int expressionOffset) {
         goto end;
     }
 
-    if (verbose)
-        printBlocksTree(rootBlock);
-
     result = buildExpressionTree(rootBlock, &expRoot);
     if (result.isError) {
         printParsingError(result, expression, expressionOffset);
@@ -160,10 +165,22 @@ int calculateExpression(char* expression, bool verbose, int expressionOffset) {
     }
 
     float resultValue = evaluateExpressionNode(expRoot);
+
+    datetime endTime = time_now();
     
     printf_s("= %f\n\n", resultValue);
 
+    if (useTimer) {
+        printTimer(startTime, endTime);
+    }
+
     end:
+    if (verbose) {
+        printWithFormatting(expression, tokens);
+        if (rootBlock.members.size > 0)
+            printBlocksTree(rootBlock);
+        printf("\n");
+    }
     vectorFree(&tokens);
     freeBlocksTree(rootBlock);
     freeExpressionTree(expRoot);
@@ -187,4 +204,18 @@ void printParsingError(ParsingResult result, char* rawExpression, int expression
     printf("ERROR: ");
     setConsoleRendition(CONSOLE_DEFAULT);
     printf("%s\n\n", result.errorMessage);
+}
+
+void printTimer(datetime startTime, datetime endTime) {
+    unsigned int nanosecondsPerSeconds = 1000000000;
+    long long deltaTimeSeconds = endTime.sec - startTime.sec;
+    unsigned int deltaTimeNanoseconds = 0;
+    if (endTime.nsec >= startTime.nsec) {
+        deltaTimeNanoseconds = endTime.nsec - startTime.nsec;
+    }
+    else {
+        deltaTimeNanoseconds = nanosecondsPerSeconds - startTime.nsec + endTime.nsec;
+        deltaTimeSeconds -= 1;
+    }
+    printf_s("   (%lfs)\n\n", (double)deltaTimeSeconds + (double)deltaTimeNanoseconds / (double)nanosecondsPerSeconds);
 }
