@@ -269,6 +269,7 @@ ParsingResult replaceBlockWithExpression(ExpressionNode* node) {
     if (node->left->type == TOKEN_OPEN_BRACKET) {
         BlockMember* block = (BlockMember*)node->left->left;
         void* old = node->left;
+        node->left = NULL;
         ParsingResult result = buildExpressionTree(block->data.block, &node->left);
         free(old);
         if (result.isError) {
@@ -284,6 +285,7 @@ ParsingResult replaceBlockWithExpression(ExpressionNode* node) {
     if (node->right->type == TOKEN_OPEN_BRACKET) {
         BlockMember* block = (BlockMember*)node->right->left;
         void* old = node->right;
+        node->right = NULL;
         ParsingResult result = buildExpressionTree(block->data.block, &node->right);
         free(old);
         if (result.isError) {
